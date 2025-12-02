@@ -4,7 +4,7 @@
 
 package frc.robot;
 
-import edu.wpi.first.cameraserver.CameraServer;
+//import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -24,6 +24,7 @@ import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.robot.LimelightHelpers.RawFiducial;
 import frc.robot.commands.driveSidewaysPID;
 import frc.robot.commands.driveSpinwaysPID;
 import frc.robot.commands.driveStraightPID;
@@ -72,9 +73,18 @@ public class Robot extends TimedRobot {
 
   private final LEDSubsystem ledSystem = new LEDSubsystem();
 
+  private RawFiducial[] fiducials = LimelightHelpers.getRawFiducials("");
+  int id;
+  double txnc;
+  double tync;
+  double ta;
+  double distToCamera;
+  double distToRobot;
+  double ambiguity;
+
 
 public Robot() {
-  CameraServer.startAutomaticCapture();
+  //CameraServer.startAutomaticCapture();
 }
 
   @Override
@@ -100,6 +110,19 @@ public Robot() {
     SmartDashboard.putData("Auto Choices", m_AutoChooser);  //Sync the Autochooser
     SmartDashboard.putNumber("Match Time", DriverStation.getMatchTime());
     SmartDashboard.putData("Command Scheduler", CommandScheduler.getInstance());
+    
+    
+    for (RawFiducial fiducial:fiducials) {
+      id = fiducial.id;
+      txnc = fiducial.txnc;
+      tync = fiducial.tync;
+      ta = fiducial.ta;
+      distToCamera = fiducial.distToCamera;
+      distToRobot = fiducial.distToRobot;
+      ambiguity = fiducial.ambiguity;
+    }
+
+    SmartDashboard.putNumber("distToCamera", distToCamera );
     
     publisher.set(m_swerve.m_odometry.getPoseMeters());
   }
