@@ -24,6 +24,7 @@ import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.robot.LimelightHelpers.RawFiducial;
 import frc.robot.commands.driveSidewaysPID;
 import frc.robot.commands.driveSpinwaysPID;
 import frc.robot.commands.driveStraightPID;
@@ -32,7 +33,6 @@ import frc.robot.subsystems.LEDSubsystem;
 
 public class Robot extends TimedRobot {
   private final CommandXboxController m_controller = new CommandXboxController(0);
-  private final CommandXboxController m_controller2 = new CommandXboxController(1);
   private Trigger yButton     = m_controller.y(); 
   private Trigger xButton     = m_controller.x(); 
   private Trigger aButton     = m_controller.a(); 
@@ -47,13 +47,10 @@ public class Robot extends TimedRobot {
   private Trigger povDown     = m_controller.povDown();
   private Trigger povLeft     = m_controller.povLeft();
   private Trigger povRight    = m_controller.povRight();
-
-
   
   private boolean isHighGear = false;
   private boolean isFieldRelative = false;
-  private boolean isAlgaeRelative = false;
-
+  
   private final Drivetrain m_swerve = new Drivetrain();
   private final Field2d m_field = new Field2d();
 
@@ -72,9 +69,17 @@ public class Robot extends TimedRobot {
 
   private final LEDSubsystem ledSystem = new LEDSubsystem();
 
+  private LimelightHelpers limelight = new LimelightHelpers();
+  int id;                  // Tag ID
+  double txnc;             // X offset (no crosshair)
+  double tync;             // Y offset (no crosshair)
+  double ta;               // Target area
+  double distToCamera;     // Distance to camera
+  double distToRobot;      // Distance to robot
+  double ambiguity;        // Tag pose ambiguity
 
 public Robot() {
-  CameraServer.startAutomaticCapture();
+  //CameraServer.startAutomaticCapture();
 }
 
   @Override
@@ -83,7 +88,6 @@ public Robot() {
     m_AutoChooser.addOption("Auto 1", Constants.AutoConstants.kAutoProgram[1]);
     m_AutoChooser.addOption("Auto 2", Constants.AutoConstants.kAutoProgram[2]);
     m_AutoChooser.addOption("Auto 3", Constants.AutoConstants.kAutoProgram[3]);
-
     SmartDashboard.putData("Auto Choices", m_AutoChooser);  //Sync the Autochooser
 
   
@@ -102,6 +106,21 @@ public Robot() {
     SmartDashboard.putData("Command Scheduler", CommandScheduler.getInstance());
     
     publisher.set(m_swerve.m_odometry.getPoseMeters());
+
+    RawFiducial[] fiducials = LimelightHelpers.getRawFiducials("");
+    for (RawFiducial fiducial : fiducials) {
+      id = fiducial.id;                    // Tag ID
+      txnc = fiducial.txnc;             // X offset (no crosshair)
+      tync = fiducial.tync;             // Y offset (no crosshair)
+      ta = fiducial.ta;                 // Target area
+      distToCamera = fiducial.distToCamera;  // Distance to camera
+      distToRobot = fiducial.distToRobot;    // Distance to robot
+      ambiguity = fiducial.ambiguity;   // Tag pose ambiguity
+    }
+
+    SmartDashboard.putNumber("distToCamera", distToCamera);
+
+
   }
 
 
@@ -183,45 +202,23 @@ public Robot() {
     double l_MaxSpeed = isHighGear?Constants.kMaxRobotSpeed:Constants.kMaxRobotSpeedLowGear;
     double l_MaxAngSpeed = isHighGear?Constants.kMaxRobotAngularSpeed:Constants.kMaxRobotAngularSpeedLowGear;
     
-    if(!isAlgaeRelative)
-    {
-      final var xSpeed =
-        -m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
+    
+    final var xSpeed =
+      m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
+      * l_MaxSpeed;
+    SmartDashboard.putNumber("xSpeed", xSpeed);
+
+    final var ySpeed =
+      -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
         * l_MaxSpeed;
-      SmartDashboard.putNumber("xSpeed", xSpeed);
+    SmartDashboard.putNumber("ySpeed", ySpeed);
 
-      final var ySpeed =
-        -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
-          * l_MaxSpeed;
-      SmartDashboard.putNumber("ySpeed", ySpeed);
+    final var rot =
+      -m_rotLimiter.calculate(MathUtil.applyDeadband(m_controller.getRightX(), 0.1))
+        * l_MaxAngSpeed;
+    SmartDashboard.putNumber("rot", rot);
 
-      final var rot =
-        -m_rotLimiter.calculate(MathUtil.applyDeadband(m_controller.getRightX(), 0.1))
-          * l_MaxAngSpeed;
-      SmartDashboard.putNumber("rot", rot);
-
-      m_swerve.drive(xSpeed, ySpeed, rot, isFieldRelative, getPeriod());    
-    } else {  //This IS algae relative.  
-      {
-        final var xSpeed =
-          m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
-          * l_MaxSpeed;
-        SmartDashboard.putNumber("xSpeed", xSpeed);
-  
-        final var ySpeed =
-          -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
-            * l_MaxSpeed;
-        SmartDashboard.putNumber("ySpeed", ySpeed);
-  
-        final var rot =
-          -m_rotLimiter.calculate(MathUtil.applyDeadband(m_controller.getRightX(), 0.1))
-            * l_MaxAngSpeed;
-        SmartDashboard.putNumber("rot", rot);
-  
-        m_swerve.drive(xSpeed, ySpeed, rot, isFieldRelative, getPeriod()); 
-    }
-
-  }
+    m_swerve.drive(xSpeed, ySpeed, rot, isFieldRelative, getPeriod()); 
 
   }
 
@@ -234,7 +231,6 @@ public Robot() {
     SmartDashboard.putNumber("Gyro Angle", m_swerve.m_gyro.getRotation2d().getDegrees());
     SmartDashboard.putBoolean("High Gear Enabled", isHighGear);
     SmartDashboard.putBoolean("isFieldRelative", isFieldRelative);
-    SmartDashboard.putBoolean("isAlgaeRelative", isAlgaeRelative);
 
     SmartDashboard.putNumber("RightTrigger", m_controller.getRightTriggerAxis());
     
