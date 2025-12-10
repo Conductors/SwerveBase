@@ -77,6 +77,7 @@ public class Robot extends TimedRobot {
   double distToCamera;     // Distance to camera
   double distToRobot;      // Distance to robot
   double ambiguity;        // Tag pose ambiguity
+  int closestAprilTagID = 0;  //Tag ID with the greatest area
 
 public Robot() {
   //CameraServer.startAutomaticCapture();
@@ -108,6 +109,8 @@ public Robot() {
     publisher.set(m_swerve.m_odometry.getPoseMeters());
 
     RawFiducial[] fiducials = LimelightHelpers.getRawFiducials("");
+    closestAprilTagID = 0;  //reset the closest tag ID each time
+    double closestAprilTagArea = 0;
     for (RawFiducial fiducial : fiducials) {
       id = fiducial.id;                    // Tag ID
       txnc = fiducial.txnc;             // X offset (no crosshair)
@@ -116,9 +119,14 @@ public Robot() {
       distToCamera = fiducial.distToCamera;  // Distance to camera
       distToRobot = fiducial.distToRobot;    // Distance to robot
       ambiguity = fiducial.ambiguity;   // Tag pose ambiguity
+      if(ta > closestAprilTagArea) {
+        closestAprilTagArea = ta;
+        closestAprilTagID = id;
+      }
     }
 
     SmartDashboard.putNumber("distToCamera", distToCamera);
+    SmartDashboard.putNumber("Txnc", txnc);
 
 
   }
@@ -154,7 +162,7 @@ public Robot() {
     backButton.onTrue(shiftGears()); 
     startButton.onTrue(changeIsFieldRelative());
     
-    //aButton.onTrue(new setCranePosition(Constants.Position.keStow, m_AlgaeGrabber));
+    aButton.onTrue(turnTorwardAprilTag(closestAprilTagID));   //turn toward the closest AprilTag 
     //bButton.onTrue(new setCranePosition(Constants.Position.keProcessor, m_AlgaeGrabber));
     //yButton.onTrue(new setCranePosition(Constants.Position.keReef3, m_AlgaeGrabber));
     //xButton.onTrue(new setCranePosition(Constants.Position.keReef2, m_AlgaeGrabber));
@@ -295,7 +303,7 @@ public Robot() {
     return new driveToPositionPID(position, getPeriod(), m_swerve);
   }
 
-  public Command shiftGears() {
+    public Command shiftGears() {
     return Commands.sequence(
         new InstantCommand(() -> isHighGear=!isHighGear)
     );
@@ -305,6 +313,11 @@ public Robot() {
     return Commands.sequence(
         new InstantCommand(() -> isFieldRelative=!isFieldRelative)
     );
+  }
+
+  public Command turnTorwardAprilTag(int tagID) {
+    double angleToTurn = -LimelightHelpers.getTX("")*(Math.PI/180); //convert degrees to radians and invert
+    return new driveSpinwaysPID(angleToTurn, getPeriod(), m_swerve); //replace 0 with angle to turn
   }
 
 
