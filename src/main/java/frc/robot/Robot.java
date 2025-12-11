@@ -206,45 +206,23 @@ public Robot() {
     double l_MaxSpeed = isHighGear?Constants.kMaxRobotSpeed:Constants.kMaxRobotSpeedLowGear;
     double l_MaxAngSpeed = isHighGear?Constants.kMaxRobotAngularSpeed:Constants.kMaxRobotAngularSpeedLowGear;
     
-    if(!isAlgaeRelative)
-    {
-      final var xSpeed =
-        -m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
+    
+    final var xSpeed =
+      -m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
+      * l_MaxSpeed;
+    SmartDashboard.putNumber("xSpeed", xSpeed);
+
+    final var ySpeed =
+      -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
         * l_MaxSpeed;
-      SmartDashboard.putNumber("xSpeed", xSpeed);
+    SmartDashboard.putNumber("ySpeed", ySpeed);
 
-      final var ySpeed =
-        -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
-          * l_MaxSpeed;
-      SmartDashboard.putNumber("ySpeed", ySpeed);
+    final var rot =
+      -m_rotLimiter.calculate(MathUtil.applyDeadband(m_controller.getRightX(), 0.1))
+        * l_MaxAngSpeed;
+    SmartDashboard.putNumber("rot", rot);
 
-      final var rot =
-        -m_rotLimiter.calculate(MathUtil.applyDeadband(m_controller.getRightX(), 0.1))
-          * l_MaxAngSpeed;
-      SmartDashboard.putNumber("rot", rot);
-
-      m_swerve.drive(xSpeed, ySpeed, rot, isFieldRelative, getPeriod());    
-    } else {  //This IS algae relative.  
-      {
-        final var xSpeed =
-          m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
-          * l_MaxSpeed;
-        SmartDashboard.putNumber("xSpeed", xSpeed);
-  
-        final var ySpeed =
-          -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
-            * l_MaxSpeed;
-        SmartDashboard.putNumber("ySpeed", ySpeed);
-  
-        final var rot =
-          -m_rotLimiter.calculate(MathUtil.applyDeadband(m_controller.getRightX(), 0.1))
-            * l_MaxAngSpeed;
-        SmartDashboard.putNumber("rot", rot);
-  
-        m_swerve.drive(xSpeed, ySpeed, rot, isFieldRelative, getPeriod()); 
-    }
-
-  }
+    m_swerve.drive(xSpeed, ySpeed, rot, isFieldRelative, getPeriod()); 
 
   }
 
