@@ -212,12 +212,12 @@ public Robot() {
     
     
     final var xSpeed =
-      m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
+      -m_xspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
       * l_MaxSpeed;
     SmartDashboard.putNumber("xSpeed", xSpeed);
 
     final var ySpeed =
-      -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftY(), 0.1))
+      -m_yspeedLimiter.calculate(MathUtil.applyDeadband(m_controller.getLeftX(), 0.1))
         * l_MaxSpeed;
     SmartDashboard.putNumber("ySpeed", ySpeed);
 
