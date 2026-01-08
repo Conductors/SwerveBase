@@ -15,8 +15,6 @@ public final class Constants {
     public static final double kGearRatio = 8.1;  //actual 8.1
     public static final int kEncoderResolution = 42;
 
-
-
     //Swerve Module Configs
     public static final double kRobotWidth  = 0.303;      //Distance in x-coor from center of robot to swerve module
     public static final double kRobotLength = 0.303;      //Distance in y-coor from center of robot to swerve module

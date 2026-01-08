@@ -4,7 +4,7 @@
 
 package frc.robot;
 
-//import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -33,7 +33,6 @@ import frc.robot.subsystems.LEDSubsystem;
 
 public class Robot extends TimedRobot {
   private final CommandXboxController m_controller = new CommandXboxController(0);
-  private final CommandXboxController m_controller2 = new CommandXboxController(1);
   private Trigger yButton     = m_controller.y(); 
   private Trigger xButton     = m_controller.x(); 
   private Trigger aButton     = m_controller.a(); 
@@ -48,13 +47,10 @@ public class Robot extends TimedRobot {
   private Trigger povDown     = m_controller.povDown();
   private Trigger povLeft     = m_controller.povLeft();
   private Trigger povRight    = m_controller.povRight();
-
-
   
   private boolean isHighGear = false;
   private boolean isFieldRelative = false;
-  private boolean isAlgaeRelative = false;
-
+  
   private final Drivetrain m_swerve = new Drivetrain();
   private final Field2d m_field = new Field2d();
 
@@ -73,15 +69,15 @@ public class Robot extends TimedRobot {
 
   private final LEDSubsystem ledSystem = new LEDSubsystem();
 
-  private RawFiducial[] fiducials = LimelightHelpers.getRawFiducials("");
-  int id;
-  double txnc;
-  double tync;
-  double ta;
-  double distToCamera;
-  double distToRobot;
-  double ambiguity;
-
+  private LimelightHelpers limelight = new LimelightHelpers();
+  int id;                  // Tag ID
+  double txnc;             // X offset (no crosshair)
+  double tync;             // Y offset (no crosshair)
+  double ta;               // Target area
+  double distToCamera;     // Distance to camera
+  double distToRobot;      // Distance to robot
+  double ambiguity;        // Tag pose ambiguity
+  int closestAprilTagID = 0;  //Tag ID with the greatest area
 
 public Robot() {
   //CameraServer.startAutomaticCapture();
@@ -93,7 +89,6 @@ public Robot() {
     m_AutoChooser.addOption("Auto 1", Constants.AutoConstants.kAutoProgram[1]);
     m_AutoChooser.addOption("Auto 2", Constants.AutoConstants.kAutoProgram[2]);
     m_AutoChooser.addOption("Auto 3", Constants.AutoConstants.kAutoProgram[3]);
-
     SmartDashboard.putData("Auto Choices", m_AutoChooser);  //Sync the Autochooser
 
   
@@ -111,20 +106,29 @@ public Robot() {
     SmartDashboard.putNumber("Match Time", DriverStation.getMatchTime());
     SmartDashboard.putData("Command Scheduler", CommandScheduler.getInstance());
     
-    
-    for (RawFiducial fiducial:fiducials) {
-      id = fiducial.id;
-      txnc = fiducial.txnc;
-      tync = fiducial.tync;
-      ta = fiducial.ta;
-      distToCamera = fiducial.distToCamera;
-      distToRobot = fiducial.distToRobot;
-      ambiguity = fiducial.ambiguity;
+    publisher.set(m_swerve.m_odometry.getPoseMeters());
+
+    RawFiducial[] fiducials = LimelightHelpers.getRawFiducials("");
+    closestAprilTagID = 0;  //reset the closest tag ID each time
+    double closestAprilTagArea = 0;
+    for (RawFiducial fiducial : fiducials) {
+      id = fiducial.id;                    // Tag ID
+      txnc = fiducial.txnc;             // X offset (no crosshair)
+      tync = fiducial.tync;             // Y offset (no crosshair)
+      ta = fiducial.ta;                 // Target area
+      distToCamera = fiducial.distToCamera;  // Distance to camera
+      distToRobot = fiducial.distToRobot;    // Distance to robot
+      ambiguity = fiducial.ambiguity;   // Tag pose ambiguity
+      if(ta > closestAprilTagArea) {
+        closestAprilTagArea = ta;
+        closestAprilTagID = id;
+      }
     }
 
-    SmartDashboard.putNumber("distToCamera", distToCamera );
-    
-    publisher.set(m_swerve.m_odometry.getPoseMeters());
+    SmartDashboard.putNumber("distToCamera", distToCamera);
+    SmartDashboard.putNumber("Txnc", txnc);
+
+
   }
 
 
@@ -158,7 +162,7 @@ public Robot() {
     backButton.onTrue(shiftGears()); 
     startButton.onTrue(changeIsFieldRelative());
     
-    //aButton.onTrue(new setCranePosition(Constants.Position.keStow, m_AlgaeGrabber));
+    aButton.onTrue(turnTorwardAprilTag(closestAprilTagID));   //turn toward the closest AprilTag 
     //bButton.onTrue(new setCranePosition(Constants.Position.keProcessor, m_AlgaeGrabber));
     //yButton.onTrue(new setCranePosition(Constants.Position.keReef3, m_AlgaeGrabber));
     //xButton.onTrue(new setCranePosition(Constants.Position.keReef2, m_AlgaeGrabber));
@@ -235,7 +239,6 @@ public Robot() {
     SmartDashboard.putNumber("Gyro Angle", m_swerve.m_gyro.getRotation2d().getDegrees());
     SmartDashboard.putBoolean("High Gear Enabled", isHighGear);
     SmartDashboard.putBoolean("isFieldRelative", isFieldRelative);
-    SmartDashboard.putBoolean("isAlgaeRelative", isAlgaeRelative);
 
     SmartDashboard.putNumber("RightTrigger", m_controller.getRightTriggerAxis());
     
@@ -300,7 +303,7 @@ public Robot() {
     return new driveToPositionPID(position, getPeriod(), m_swerve);
   }
 
-  public Command shiftGears() {
+    public Command shiftGears() {
     return Commands.sequence(
         new InstantCommand(() -> isHighGear=!isHighGear)
     );
@@ -310,6 +313,11 @@ public Robot() {
     return Commands.sequence(
         new InstantCommand(() -> isFieldRelative=!isFieldRelative)
     );
+  }
+
+  public Command turnTorwardAprilTag(int tagID) {
+    double angleToTurn = -LimelightHelpers.getTX("")*(Math.PI/180); //convert degrees to radians and invert
+    return new driveSpinwaysPID(angleToTurn, getPeriod(), m_swerve); //replace 0 with angle to turn
   }
 
 
