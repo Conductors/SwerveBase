@@ -127,6 +127,7 @@ public Robot() {
 
     SmartDashboard.putNumber("distToCamera", distToCamera);
     SmartDashboard.putNumber("Txnc", txnc);
+    SmartDashboard.putNumber("closestAprilTag", closestAprilTagID);
 
 
   }
